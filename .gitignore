@@ -1,6 +1,6 @@
 # Python
 __pycache__/
-*.py[cod]
+*.py[cod] 
 *$py.class
 *.so
 .Python
@@ -43,7 +43,7 @@ env/
 # */des_results/
 
 # 大文件
-*.pdf
+# *.pdf
 *.h5
 *.hdf5
 *.npy
