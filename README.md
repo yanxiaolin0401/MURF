@@ -1,65 +1,93 @@
-# MURF
-Code for "MURF: Mutually Reinforcing Multi-modal Image Registration and Fusion" (IEEE TPAMI 2023).
+# MURF - TensorFlow 2.x 兼容版本
 
-## Recommended Environment:
-python=3.6<br>
-tensorflow-gpu=1.14.0<br>
-numpy=1.19<br>
-scikit-image=0.17.2<br>
-pillow=8.2<br>
+[![TensorFlow](https://img.shields.io/badge/TensorFlow-2.10-orange.svg)](https://tensorflow.org)
+[![Python](https://img.shields.io/badge/Python-3.8-blue.svg)](https://python.org)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## **Task #1: Shared information extraction**
-<div align=center><img src="https://github.com/hanna-xu/others/blob/master/images/MURF_task1_show.png" width="950" height="330"/></div>
+> **基于 [hanna-xu/MURF](https://github.com/hanna-xu/MURF) 复现并升级至 TensorFlow 2.x**
 
-### To train:
-* Download the training data:
-   * [RGB-IR](https://pan.baidu.com/s/1MPSmWuOhKr2KQxD8aj5gHA?pwd=e9gf) (created with [*RoadScene*](https://github.com/hanna-xu/RoadScene) dataset)
-   * [RGB-NIR](https://pan.baidu.com/s/1oakDnUKCtT0MaxjP-6Q0jA?pwd=epov) (created with [*VIS-NIR Scene*](http://matthewalunbrown.com/nirscene/nirscene.html) dataset)
-   * [PET-MRI](https://pan.baidu.com/s/1BgX7lFbtZ4cunR7P160cnA?pwd=hu06) (created with [*Harvard*](http://www.med.harvard.edu/AANLIB/home.html) dataset) 
-   * [CT-MRI](https://pan.baidu.com/s/1WtVS8qO83tB8coy5TvJE8Q?pwd=rphq) (created with [*Harvard*](http://www.med.harvard.edu/AANLIB/home.html) dataset) 
-   * or create your training dataset according to [it](https://github.com/hanna-xu/utils)<br>
-* Run ```CUDA_VISIBLE_DEVICES=0 python main.py```
-### To test:
-* Put the test data in `./test_imgs/`<br>
-* Run ```CUDA_VISIBLE_DEVICES=0 python test.py```<br>
+本项目是 IEEE TPAMI 2023 论文 **"MURF: Mutually Reinforcing Multi-modal Image Registration and Fusion"** 的代码复现版本，已从 TensorFlow 1.14 升级至 **TensorFlow 2.10**，支持现代 GPU (如 RTX 4090) 环境运行。
 
-## Task #2: Multi-scale coarse registration
-<div align=center><img src="https://github.com/hanna-xu/others/blob/master/images/MCRM_show.png" width="950" height="290"/></div>
-<br>
+## 📋 主要改进
 
-- [ ] **This task is based on Task #1, so the code and models in task #1 should be downloaded and prepared in advance.**
+相比原始代码，本版本进行了以下改进：
 
-### To train:
-* Download the training data: [RGB-IR](https://pan.baidu.com/s/11-vMvbzLyR1FxnIi0jxGWg?pwd=8sih), [RGB-NIR](https://pan.baidu.com/s/1P24HU1vDbDxcDZmM8b_ruA?pwd=ry6r), [PET-MRI](https://pan.baidu.com/s/1ZlQCiDfnL36qqgq2p7XxoA?pwd=th6o), [CT-MRI](https://pan.baidu.com/s/1pYrf_GzGujFF-xW4QVA6xg?pwd=ik0k) or create your training dataset.
-* Adjust `task1_model_path` in `main.py` to the path where you store the model in task #1.
-* Run ```CUDA_VISIBLE_DEVICES=0,1 python main.py``` <br>
-##### In some tasks:
-* Put more large-resolution training images in `./large_images_for_training/`
-* Finetune the trained model with large-resolution images by running ```CUDA_VISIBLE_DEVICES=0,1 python finetuning.py```
-### To test:
-* Prepare test data (one of the two ways):
-    * Put the test images in `./test_data/images/` ***or*** 
-    * Put the test data (including images and **landmark**) in `./test_data/LM/` in `.mat` format <br> 
-* Run test code:
-  * ```CUDA_VISIBLE_DEVICES=0 python test.py``` ***or*** 
-  * ```CUDA_VISIBLE_DEVICES=0,1 python test.py``` ***or*** 
-  * ```CUDA_VISIBLE_DEVICES=0,1 python test_w_finetuning.py``` 
+| 改进项     | 原版本                  | 本版本                |
+| ---------- | ----------------------- | --------------------- |
+| TensorFlow | 1.14 (仅支持 CUDA 10.x) | 2.10 (支持 CUDA 11.x) |
+| Python     | 3.6                     | 3.8                   |
+| 图像处理   | scipy.misc (已废弃)     | imageio + PIL         |
+| GPU 支持   | 旧版 GPU                | RTX 30/40 系列        |
+| 环境配置   | 手动配置                | 一键脚本              |
 
-## Task #3: Fine registration and fusion
-<div align=center><img src="https://github.com/hanna-xu/others/blob/master/images/F2M_show.png" width="600" height="320"/></div>
+### 代码兼容性修改
 
-### To train:
-* Download the training data (same as that in Task #1 and the non-rigid deformation is applied subsequently)
-* Run ```CUDA_VISIBLE_DEVICES=0 python main.py```
-##### In some tasks:
-* Put more large-resolution training images in `./large_images_for_training/`
-* Finetune the trained model with large-resolution images by running ```CUDA_VISIBLE_DEVICES=0 python finetuning.py```
-### To test:
-* Put the test data in `./test_imgs/`<br>
-* Run ```CUDA_VISIBLE_DEVICES=0 python test.py```<br>
+- ✅ `tf.Session` → `tf.compat.v1.Session`
+- ✅ `tf.placeholder` → `tf.compat.v1.placeholder`
+- ✅ `tf.contrib.layers` → `tf.compat.v1.layers`
+- ✅ `scipy.misc.imread/imresize` → `imageio.imread` + `PIL.Image.resize`
+- ✅ 修复变量命名以兼容预训练模型
+- ✅ 修复 GPU 设备分配问题
 
-The previous version of this work:
+## 🚀 快速开始
+
+### 请查看[论文复现指南](PROJECT_REPORT.md)
+
+## 📁 项目结构
+
 ```
+MURF/
+├── README.md                    # 本文件
+├── setup_env.sh                 # 环境配置脚本
+├── activate_gpu.sh              # GPU 环境激活脚本
+├── run_all_tests.sh             # 一键测试脚本
+├── fix_tf2_compat.py            # TF1→TF2 自动转换脚本
+├── evaluate_results.py          # 结果评估脚本
+├── PROJECT_REPORT.md            # 详细复现报告
+├── EXPERIMENT_LOG.md            # 实验日志
+├── REPRODUCTION_GUIDE.md        # 完整复现指南
+│
+├── RGB-IR/                      # 可见光-红外融合
+├── RGB-NIR/                     # 可见光-近红外融合
+├── PET-MRI/                     # PET-MRI 医学图像融合
+└── CT-MRI/                      # CT-MRI 医学图像融合
+    ├── shared_information_extraction/      # Task 1: 共享信息提取
+    ├── multi-scale_coarse_registration/    # Task 2: 多尺度粗配准
+    └── fine_registration_and_fusion/       # Task 3: 精细配准与融合
+```
+
+## 🎯 支持的模态与任务
+
+| 模态    | Task 1 共享信息提取 | Task 2 多尺度粗配准 | Task 3 精细配准融合 |
+| ------- | :-----------------: | :-----------------: | :-----------------: |
+| RGB-IR  |          ✅          |          ✅          |          ✅          |
+| RGB-NIR |          ✅          |          ✅          |  ❌ (无预训练模型)   |
+| PET-MRI |          ✅          |          ✅          |          ✅          |
+| CT-MRI  |          ✅          |          ✅          |          ✅          |
+
+**成功复现: 11/12 个任务**
+
+
+## 💻 测试环境
+
+- **OS**: Ubuntu 22.04
+- **GPU**: NVIDIA RTX 4090 D
+- **Python**: 3.8.20
+- **TensorFlow**: 2.10.0
+- **CUDA**: 11.x (通过 pip nvidia-cudnn-cu11)
+- **cuDNN**: 8.6.0.163
+
+
+## 📚 参考文献
+
+```bibtex
+@article{xu2023murf,
+  title={MURF: Mutually Reinforcing Multi-modal Image Registration and Fusion},
+  author={Xu, Han and Ma, Jiayi and Yuan, Jiteng and Le, Zhuliang and Liu, Wei},
+  journal={IEEE Transactions on Pattern Analysis and Machine Intelligence},
+  year={2023}
+}
+
 @inproceedings{xu2022rfnet,
   title={Rfnet: Unsupervised network for mutually reinforcing multi-modal image registration and fusion},
   author={Xu, Han and Ma, Jiayi and Yuan, Jiteng and Le, Zhuliang and Liu, Wei},
@@ -68,3 +96,12 @@ The previous version of this work:
   year={2022}
 }
 ```
+
+## 🙏 致谢
+
+- 原始代码: [hanna-xu/MURF](https://github.com/hanna-xu/MURF)
+- 论文作者: Han Xu, Jiayi Ma, Jiteng Yuan, Zhuliang Le, Wei Liu (武汉大学)
+
+## 📄 License
+
+本项目采用 MIT License 开源协议。

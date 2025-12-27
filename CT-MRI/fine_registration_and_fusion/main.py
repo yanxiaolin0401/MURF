@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from train import train_f2m
 from f2m_model import F2M_Model
@@ -20,10 +21,10 @@ NUM=2
 def main():
 	with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
 		model = F2M_Model(BATCH_SIZE=8, INPUT_W=patch_size, INPUT_H=patch_size, is_training=True)
-		SOURCE_CT = tf.placeholder(tf.float32, shape = (model.batchsize, patch_size, patch_size, 1), name = 'SOURCE1')
-		SOURCE_MRI = tf.placeholder(tf.float32, shape = (model.batchsize, patch_size, patch_size, 1), name = 'SOURCE2')
-		DEFOR_FIELD = tf.placeholder(tf.float32, shape=(model.batchsize, patch_size, patch_size, 2), name='defor_field')
-		RE_DEFOR_FIELD_GT = tf.placeholder(tf.float32, shape=(model.batchsize, patch_size, patch_size, 2), name='re_defor_field_gt')
+		SOURCE_CT = tf.compat.v1.placeholder(tf.float32, shape = (model.batchsize, patch_size, patch_size, 1), name = 'SOURCE1')
+		SOURCE_MRI = tf.compat.v1.placeholder(tf.float32, shape = (model.batchsize, patch_size, patch_size, 1), name = 'SOURCE2')
+		DEFOR_FIELD = tf.compat.v1.placeholder(tf.float32, shape=(model.batchsize, patch_size, patch_size, 2), name='defor_field')
+		RE_DEFOR_FIELD_GT = tf.compat.v1.placeholder(tf.float32, shape=(model.batchsize, patch_size, patch_size, 2), name='re_defor_field_gt')
 		model.f2m(SOURCE_CT, SOURCE_MRI, DEFOR_FIELD,RE_DEFOR_FIELD_GT, is_training=True)
 
 		saver = tf.compat.v1.train.Saver(max_to_keep=5)

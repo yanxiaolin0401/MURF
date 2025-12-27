@@ -1,5 +1,7 @@
 from __future__ import print_function
 import tensorflow as tf
+import tensorflow_addons as tfa
+tf.compat.v1.disable_eager_execution()
 import os
 import numpy as np
 import math
@@ -42,12 +44,12 @@ def load(sess, saver, checkpoint_dir):
 		return False, 0
 
 def up_layer(scope_name, x, channels, kernel_size):
-	with tf.variable_scope(scope_name):
+	with tf.compat.v1.variable_scope(scope_name):
 		l=int((kernel_size-1)/2)
 		_, height, width, c = x.shape
-		x = tf.image.resize_images(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
+		x = tf.image.resize(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
 		x = tf.pad(x, [[0, 0], [l, l], [l, l], [0, 0]], mode='REFLECT')
-		x = tf.contrib.layers.conv2d(inputs=x, num_outputs=channels, kernel_size=kernel_size, stride = 1, padding='VALID',
+		x = tf.compat.v1.layers.conv2d(inputs=x, num_outputs=channels, kernel_size=kernel_size, stride = 1, padding='VALID',
 									 activation_fn=None)
 		x = lrelu(x)
 	return x
@@ -69,12 +71,12 @@ def normalize_common_tf(a, b):
 	return new_a, new_b
 
 def resblock(x_init, channels, use_bias=True, scope='resblock', reuse=False):
-	with tf.variable_scope(scope):
-		with tf.variable_scope('res1'):
+	with tf.compat.v1.variable_scope(scope):
+		with tf.compat.v1.variable_scope('res1'):
 			x = conv(x_init, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 			x = lrelu(x)
-		with tf.variable_scope('res2'):
+		with tf.compat.v1.variable_scope('res2'):
 			x = conv(x, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 		return x + x_init
@@ -260,7 +262,7 @@ def batch_rotate_p4(batch, degrees):
 
 	for i in range(batch_size):
 		for c in range(channels):
-			rotate_c = tf.contrib.image.rotate(batch[i:i + 1, :, :, c:c+1], degrees[i] * 90 * math.pi / 180,
+			rotate_c = tfa.image.rotate(batch[i:i + 1, :, :, c:c+1], degrees[i] * 90 * math.pi / 180,
 											 interpolation='BILINEAR')
 			if c==0:
 				rotate = rotate_c

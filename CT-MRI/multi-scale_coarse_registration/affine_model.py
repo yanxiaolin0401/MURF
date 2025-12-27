@@ -1,5 +1,6 @@
 from __future__ import print_function
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ from IPython import display
 import scipy.io as scio
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 from skimage import img_as_ubyte
 from utils import *
@@ -28,7 +29,7 @@ class Affine_Model(object):
 		self.INPUT_W = INPUT_W
 		self.var_list_g = []
 		self.step = 0
-		self.lr = tf.placeholder(tf.float32, name='lr')
+		self.lr = tf.compat.v1.placeholder(tf.float32, name='lr')
 		self.is_training = is_training
 
 	def affine(self, CT, MRI):
@@ -64,7 +65,7 @@ class Affine_Model(object):
 
 
 		if self.is_training:
-			with tf.device('/gpu:1'):
+			with tf.device('/gpu:0'):
 				self.extract_model = Des_Extract_Model(self.batchsize, self.INPUT_H, self.INPUT_W, is_training=False, equivariance=False)
 				self.extract_model.des(self.CT, self.MRI)
 				self.CT_des = self.extract_model.CT_des
@@ -107,70 +108,70 @@ class Affine_Generator(object):
 		self.is_training = is_training
 
 	def field_model(self, img_a, img_b):
-		with tf.variable_scope(self.scope):
+		with tf.compat.v1.variable_scope(self.scope):
 			x = tf.concat([img_a, img_b], axis=-1)
 
-			with tf.variable_scope('layer1'):
-				weights = tf.get_variable("w1", [9, 9, 2, 16],
-										initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-				bias = tf.get_variable("b1", [16], initializer=tf.constant_initializer(0.0))
+			with tf.compat.v1.variable_scope('layer1'):
+				weights = tf.compat.v1.get_variable("w1", [9, 9, 2, 16],
+										initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+				bias = tf.compat.v1.get_variable("b1", [16], initializer=tf.constant_initializer(0.0))
 				conv1 = tf.nn.conv2d(x, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 				conv1 = lrelu(conv1)
 
 				conv1_offset = convoffset2D(conv1, channel=16, scope_name='conv1_offset')
-				bias = tf.get_variable("offset_b1", [16], initializer=tf.constant_initializer(0.0))
+				bias = tf.compat.v1.get_variable("offset_b1", [16], initializer=tf.constant_initializer(0.0))
 				conv1_offset = lrelu(conv1_offset + bias)
 				# conv1_offset = convoffset2D(conv1_r, scope_name = 'conv3_offset')
 				size1 = conv1_offset.shape
 				conv1_pool = tf.nn.max_pool(conv1_offset, ksize=[1, pool_size, pool_size, 1],
 											strides=[1, pool_size, pool_size, 1], padding='SAME')
 
-			with tf.variable_scope('layer2'):
-				weights = tf.get_variable("w2", [9, 9, 16, 32],
-										initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-				bias = tf.get_variable("b2", [32], initializer=tf.constant_initializer(0.0))
+			with tf.compat.v1.variable_scope('layer2'):
+				weights = tf.compat.v1.get_variable("w2", [9, 9, 16, 32],
+										initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+				bias = tf.compat.v1.get_variable("b2", [32], initializer=tf.constant_initializer(0.0))
 				conv2 = tf.nn.conv2d(conv1_pool, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 				conv2 = lrelu(conv2)
 
 				conv2_offset = convoffset2D(conv2, channel=32, scope_name='conv2_offset')
-				bias = tf.get_variable("offset_b2", [32], initializer=tf.constant_initializer(0.0))
+				bias = tf.compat.v1.get_variable("offset_b2", [32], initializer=tf.constant_initializer(0.0))
 				conv2_offset = lrelu(conv2_offset + bias)
 				size2 = conv2_offset.shape
 				conv2_pool = tf.nn.max_pool(conv2_offset, ksize=[1, pool_size, pool_size, 1],
 											strides=[1, pool_size, pool_size, 1], padding='SAME')
 
-			with tf.variable_scope('layer3'):
-				weights = tf.get_variable("w3", [9, 9, 32, 64],
-										initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-				bias = tf.get_variable("b3", [64], initializer=tf.constant_initializer(0.0))
+			with tf.compat.v1.variable_scope('layer3'):
+				weights = tf.compat.v1.get_variable("w3", [9, 9, 32, 64],
+										initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+				bias = tf.compat.v1.get_variable("b3", [64], initializer=tf.constant_initializer(0.0))
 				conv3 = tf.nn.conv2d(conv2_pool, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 				conv3 = lrelu(conv3)
 
 				conv3_offset = convoffset2D(conv3, channel=64, scope_name='conv3_offset')
-				bias = tf.get_variable("offset_b3", [64], initializer=tf.constant_initializer(0.0))
+				bias = tf.compat.v1.get_variable("offset_b3", [64], initializer=tf.constant_initializer(0.0))
 				conv3_offset = lrelu(conv3_offset + bias)
 				size3 = conv3_offset.shape
 				conv3_pool = tf.nn.max_pool(conv3_offset, ksize=[1, pool_size, pool_size, 1],
 											strides=[1, pool_size, pool_size, 1], padding='SAME')
 
-			with tf.variable_scope('layer4'):
-				weights = tf.get_variable("w4", [7, 7, 64, 64],
-										initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-				bias = tf.get_variable("b4", [64], initializer=tf.constant_initializer(0.0))
+			with tf.compat.v1.variable_scope('layer4'):
+				weights = tf.compat.v1.get_variable("w4", [7, 7, 64, 64],
+										initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+				bias = tf.compat.v1.get_variable("b4", [64], initializer=tf.constant_initializer(0.0))
 				conv4 = tf.nn.conv2d(conv3_pool, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 				conv4 = lrelu(conv4)
 
-			with tf.variable_scope('layer5'):
-				weights = tf.get_variable("w5", [7, 7, 64, 128],
-										initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-				bias = tf.get_variable("b4", [128], initializer=tf.constant_initializer(0.0))
+			with tf.compat.v1.variable_scope('layer5'):
+				weights = tf.compat.v1.get_variable("w5", [7, 7, 64, 128],
+										initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+				bias = tf.compat.v1.get_variable("b4", [128], initializer=tf.constant_initializer(0.0))
 				conv5 = tf.nn.conv2d(conv4, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 				conv5 = lrelu(conv5)
 
 			gap = tf.reduce_mean(conv5, [1, 2])
 
-			with tf.variable_scope('fcn1'):
-				gap = tf.layers.dense(inputs=gap, units=6, activation=None, use_bias=True)
+			with tf.compat.v1.variable_scope('fcn1'):
+				gap = tf.compat.v1.layers.dense(inputs=gap, units=6, activation=None, use_bias=True)
 				output = lrelu(gap)
 
 		return output
@@ -243,7 +244,7 @@ def apply_affine_trans(img, dtheta):
 def img_resize(x, scale):
 	oh = x.shape[1]
 	ow = x.shape[2]
-	x = tf.image.resize_images(images=x, size=[tf.constant(int(oh) * scale), tf.constant(int(ow) * scale)])
+	x = tf.image.resize(images=x, size=[tf.constant(int(oh) * scale), tf.constant(int(ow) * scale)])
 	return x
 
 
@@ -287,7 +288,7 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
 			if pad_type == 'reflect':
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], mode='REFLECT')
-		x = tf.layers.conv2d(inputs=x, filters=channels,
+		x = tf.compat.v1.layers.conv2d(inputs=x, filters=channels,
 							kernel_size=kernel, kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.05),
 							kernel_regularizer=None,
 							strides=stride, use_bias=use_bias, reuse=reuse)
@@ -314,11 +315,11 @@ def convoffset2D(x, channel, scope_name=None):
 	x_shape_list = x.get_shape().as_list()
 	# channel = x_shape_list[-1]
 
-	with tf.variable_scope(scope_name):
-		with tf.variable_scope('offset_conv'):
+	with tf.compat.v1.variable_scope(scope_name):
+		with tf.compat.v1.variable_scope('offset_conv'):
 			offsets = conv(x, channels = channel * 2, kernel = 3, stride = 1, pad = 1, pad_type = 'reflect',
 						scope = 'conv', use_bias = False)
-		with tf.variable_scope('weight_conv'):
+		with tf.compat.v1.variable_scope('weight_conv'):
 			weights = conv(x, channels = channel, kernel = 3, stride = 1, pad = 1, pad_type = 'reflect',
 						scope = 'conv', use_bias = False)
 			weights = tf.nn.sigmoid(weights)
@@ -375,8 +376,8 @@ def tf_map_coordinates(input, coords):
 	:param coords: tf.Tensor. shape = (n_points, 2)
 	:return:
 	"""
-	coords_tl = tf.cast(tf.floor(coords), tf.int32)
-	coords_br = tf.cast(tf.ceil(coords), tf.int32)
+	coords_tl = tf.cast(tf.math.floor(coords), tf.int32)
+	coords_br = tf.cast(tf.math.ceil(coords), tf.int32)
 	coords_bl = tf.stack([coords_br[:, 0], coords_tl[:, 1]], axis=1)
 	coords_tr = tf.stack([coords_tl[:, 0], coords_br[:, 1]], axis=1)
 	vals_tl = tf.gather_nd(input, coords_tl)
@@ -405,8 +406,8 @@ def tf_batch_map_coordinates(input, coords):
 	coords_w = tf.clip_by_value(coords[..., 1], 0, tf.cast(input_size_w, tf.float32) - 1)
 	coords_h = tf.clip_by_value(coords[..., 0], 0, tf.cast(input_size_h, tf.float32) - 1)
 	coords = tf.stack([coords_h, coords_w], axis=-1)
-	coords_tl = tf.cast(tf.floor(coords), tf.int32)
-	coords_br = tf.cast(tf.ceil(coords), tf.int32)
+	coords_tl = tf.cast(tf.math.floor(coords), tf.int32)
+	coords_br = tf.cast(tf.math.ceil(coords), tf.int32)
 	coords_bl = tf.stack([coords_br[..., 0], coords_tl[..., 1]], axis=-1)
 	coords_tr = tf.stack([coords_tl[..., 0], coords_br[..., 1]], axis=-1)
 	idx = tf_repeat(tf.range(batch_size), n_coords)
@@ -503,6 +504,6 @@ def reduce_std(x, axis=None, keepdims=False):
 	return tf.sqrt(reduce_var(x, axis=axis, keepdims=keepdims))
 
 def reduce_var(x, axis=None, keepdims=False):
-	m = tf.reduce_mean(x, axis=axis, keep_dims=True)
+	m = tf.reduce_mean(x, axis=axis, keepdims=True)
 	devs_squared = tf.square(x - m)
-	return tf.reduce_mean(devs_squared, axis=axis, keep_dims=keepdims)
+	return tf.reduce_mean(devs_squared, axis=axis, keepdims=keepdims)

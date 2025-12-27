@@ -1,4 +1,5 @@
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from tensorflow.python import pywrap_tensorflow
 import numpy as np
 from utils import *
@@ -15,7 +16,7 @@ class Encoder(object):
 			input = img
 
 			x1 = conv(input, 32, kernel=1, stride=1, pad=0, pad_type='reflect', scope='conv1')
-			x1 = instance_norm(x1, scope='in1') #x = tf.layers.batch_normalization(x, training=True)
+			x1 = instance_norm(x1, scope='in1') #x = tf.compat.v1.layers.batch_normalization(x, training=True)
 			x1 = lrelu(x1)
 
 			x2 = conv(x1, 32, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv2')
@@ -62,7 +63,7 @@ class Shared_Layers(object):
 		self.scope = scope_name
 
 	def encode(self, input, code_dim, reuse=False):
-		with tf.variable_scope(self.scope, reuse = reuse):
+		with tf.compat.v1.variable_scope(self.scope, reuse = reuse):
 			x = conv(input, 64, kernel=3, stride=2, pad=1, pad_type='reflect', scope='conv1')
 			x = lrelu(x)
 			# 128
@@ -81,12 +82,12 @@ class Shared_Layers(object):
 
 			x = tf.reshape(x, [-1, int(x.shape[1]) * int(x.shape[2]) * int(x.shape[3])])
 
-			with tf.variable_scope('fc1'):
-				x = tf.layers.dense(x, units=code_dim*2, kernel_initializer=weight_init,
+			with tf.compat.v1.variable_scope('fc1'):
+				x = tf.compat.v1.layers.dense(x, units=code_dim*2, kernel_initializer=weight_init,
 									kernel_regularizer=weight_regularizer, use_bias=True, reuse=reuse)
 				x = lrelu(x)
-			with tf.variable_scope('fc2'):
-				x = tf.layers.dense(x, units=code_dim, kernel_initializer=weight_init,
+			with tf.compat.v1.variable_scope('fc2'):
+				x = tf.compat.v1.layers.dense(x, units=code_dim, kernel_initializer=weight_init,
 									kernel_regularizer=weight_regularizer, use_bias=True, reuse=reuse)
 		return x
 
@@ -94,14 +95,14 @@ def con(x,y):
 	return tf.concat([x,y],axis=-1)
 
 def resblock(x_init, channels, use_bias=True, sn=False, scope='resblock', reuse=False):
-	with tf.variable_scope(scope):
-		with tf.variable_scope('res1'):
+	with tf.compat.v1.variable_scope(scope):
+		with tf.compat.v1.variable_scope('res1'):
 			x = conv(x_init, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias, sn=sn,
 					 reuse=reuse)
 			# x = instance_norm(x)
 			x = lrelu(x)
 
-		with tf.variable_scope('res2'):
+		with tf.compat.v1.variable_scope('res2'):
 			x = conv(x, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias, sn=sn, reuse=reuse)
 			# x = instance_norm(x)
 
@@ -111,7 +112,7 @@ def resblock(x_init, channels, use_bias=True, sn=False, scope='resblock', reuse=
 
 
 def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True, sn=False, scope='conv', reuse=False):
-	with tf.variable_scope(scope):
+	with tf.compat.v1.variable_scope(scope):
 		if pad > 0:
 			if (kernel - stride) % 2 == 0:
 				pad_top = pad
@@ -131,16 +132,16 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], mode='REFLECT')
 
 		if sn:
-			w = tf.get_variable("kernel", shape=[kernel, kernel, x.get_shape()[-1], channels], initializer=weight_init,
+			w = tf.compat.v1.get_variable("kernel", shape=[kernel, kernel, x.get_shape()[-1], channels], initializer=weight_init,
 								regularizer=weight_regularizer)
 			x = tf.nn.conv2d(input=x, filter=spectral_norm(w), strides=[1, stride, stride, 1], padding='VALID',
 							 reuse=reuse)
 			if use_bias:
-				bias = tf.get_variable("bias", [channels], initializer=tf.constant_initializer(0.0))
+				bias = tf.compat.v1.get_variable("bias", [channels], initializer=tf.constant_initializer(0.0))
 				x = tf.nn.bias_add(x, bias)
 
 		else:
-			x = tf.layers.conv2d(inputs=x, filters=channels,
+			x = tf.compat.v1.layers.conv2d(inputs=x, filters=channels,
 								 kernel_size=kernel, kernel_initializer=weight_init,
 								 kernel_regularizer=weight_regularizer,
 								 strides=stride, use_bias=use_bias, reuse=reuse)
@@ -154,11 +155,11 @@ def instance_norm(x, scope='instance_norm'):
 	#                                        scope=scope)
 	shape = x.get_shape().as_list()
 	depth = shape[3]
-	with tf.variable_scope(scope):
+	with tf.compat.v1.variable_scope(scope):
 		scale = tf.compat.v1.get_variable("scale", shape=[depth],
-								initializer=tf.random_normal_initializer(mean=1.0, stddev=0.02, dtype=tf.float32))
+								initializer=tf.random_normal_initializer(mean=1.0, stddev=0.02))
 		offset = tf.compat.v1.get_variable("offset", shape=[depth], initializer=tf.constant_initializer(0.0))
-		mean, variance = tf.nn.moments(x, axes=[1, 2], keep_dims=True)
+		mean, variance = tf.nn.moments(x, axes=[1, 2], keepdims=True)
 		epsilon = 1e-5
 		inv = tf.math.rsqrt(variance + epsilon)
 		normalized = (x - mean) * inv

@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from datetime import datetime
 from utils import *
@@ -25,17 +26,17 @@ def main():
 	files = listdir(test_path1)
 	step = 20000
 
-	with tf.Graph().as_default(), tf.Session() as sess:
+	with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
 		model = Affine_Model(BATCH_SIZE=batch_size, INPUT_W=patch_size, INPUT_H=patch_size, is_training=True)
-		SOURCE_RGB = tf.placeholder(tf.float32, shape=(batch_size, patch_size, patch_size, 3), name='SOURCE1')
-		SOURCE_NIR = tf.placeholder(tf.float32, shape=(batch_size, patch_size, patch_size, 1), name='SOURCE2')
+		SOURCE_RGB = tf.compat.v1.placeholder(tf.float32, shape=(batch_size, patch_size, patch_size, 3), name='SOURCE1')
+		SOURCE_NIR = tf.compat.v1.placeholder(tf.float32, shape=(batch_size, patch_size, patch_size, 1), name='SOURCE2')
 		model.affine(SOURCE_RGB, SOURCE_NIR, dropout=False)
 
 		WSOURCE1, label, _ = apply_affine_trans(SOURCE_RGB, model.dtheta)
 		WSOURCE1 = tf.multiply(WSOURCE1, tf.tile(label, [1, 1, 1, 3]))
 
-		var_list_des = tf.contrib.framework.get_trainable_variables(scope='des_extract')
-		var_list_affine = tf.contrib.framework.get_trainable_variables(scope='affine_net')
+		var_list_des = [v for v in tf.compat.v1.trainable_variables() if 'des_extract' in v.name]
+		var_list_affine = [v for v in tf.compat.v1.trainable_variables() if 'affine_net' in v.name]
 		var_list = var_list_affine + var_list_des
 
 		model.clip = [p.assign(tf.clip_by_value(p, -50, 50)) for p in var_list_affine]
@@ -77,8 +78,8 @@ def main():
 				name = name.split('.')[-2]
 				print("\033[0;37;40m"+ name + ".png" + "\033[0m")
 
-				rgb_img = scipy.misc.imread(test_path1 + file.split('/')[-1])
-				nir_img = scipy.misc.imread(test_path2 + file.split('/')[-1])
+				rgb_img = imread(test_path1 + file.split('/')[-1])
+				nir_img = imread(test_path2 + file.split('/')[-1])
 				rgb_dimension = list(rgb_img.shape)
 				nir_dimension = list(nir_img.shape)
 				H = rgb_dimension[0] * 1.0

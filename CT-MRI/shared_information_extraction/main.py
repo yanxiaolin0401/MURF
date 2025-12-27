@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from train import train_descriptor
 from des_extract_model import Des_Extract_Model

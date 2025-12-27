@@ -6,6 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from affine_model import Affine_Model, apply_affine_trans
 from utils import *
@@ -27,17 +28,17 @@ def main():
 
 	pic_num = 0
 
-	with tf.Graph().as_default(), tf.Session() as sess:
+	with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
 		affine_model = Affine_Model(BATCH_SIZE=1, INPUT_H=H, INPUT_W=W, is_training=True)
-		SOURCE_RGB_N = tf.placeholder(tf.float32, shape = (1, H, W, 3), name = 'SOURCE1_N')
-		SOURCE_NIR_N = tf.placeholder(tf.float32, shape = (1, H, W, 1), name = 'SOURCE2_N')
-		SOURCE_RGB = tf.placeholder(tf.float32, shape=(1, H*2, W*2, 3), name='SOURCE1')
+		SOURCE_RGB_N = tf.compat.v1.placeholder(tf.float32, shape = (1, H, W, 3), name = 'SOURCE1_N')
+		SOURCE_NIR_N = tf.compat.v1.placeholder(tf.float32, shape = (1, H, W, 1), name = 'SOURCE2_N')
+		SOURCE_RGB = tf.compat.v1.placeholder(tf.float32, shape=(1, H*2, W*2, 3), name='SOURCE1')
 		affine_model.affine(SOURCE_RGB_N, SOURCE_NIR_N, dropout=False)
 		WSOURCE1, label, _ = apply_affine_trans(SOURCE_RGB, affine_model.dtheta)
 		WSOURCE1 = tf.multiply(WSOURCE1, tf.tile(label, [1, 1, 1, 3]))
 
-		var_list_des = tf.contrib.framework.get_trainable_variables(scope='des_extract')
-		var_list_affine = tf.contrib.framework.get_trainable_variables(scope='affine_net')
+		var_list_des = [v for v in tf.compat.v1.trainable_variables() if 'des_extract' in v.name]
+		var_list_affine = [v for v in tf.compat.v1.trainable_variables() if 'affine_net' in v.name]
 		var_list = var_list_affine + var_list_des
 
 		affine_model.solver = tf.compat.v1.train.AdamOptimizer(learning_rate=0.0001, beta1=0.5, beta2=0.99).minimize(
@@ -54,8 +55,8 @@ def main():
 			print("\033[0;33;40m\n[" + str(pic_num) + "/" + str(len(files)) + "]: " + names + "\033[0m")
 
 			'''load data through image'''
-			# rgb_img = scipy.misc.imread(test_path1 + names)
-			# nir_img = scipy.misc.imread(test_path2 + names)
+			# rgb_img = imread(test_path1 + names)
+			# nir_img = imread(test_path2 + names)
 
 			'''load data with landmark through .mat'''
 			data = scio.loadmat(test_path_LM + name + '.mat')
@@ -88,7 +89,7 @@ def main():
 			warped_rgb = scipy.misc.imresize(warped_rgb[0, :, :, :], (height, width)).astype(np.float32) / 255.0
 			if not os.path.exists(save_path + 'warped_RGB/'):
 				os.mkdir(save_path + 'warped_RGB/')
-			scipy.misc.imsave(save_path + 'warped_RGB/' + name + '.png', warped_rgb)
+			imsave(save_path + 'warped_RGB/' + name + '.png', warped_rgb)
 
 			rgb_img = rgb_img.astype(np.float32) / 255.0
 			nir_img = nir_img.astype(np.float32) / 255.0
@@ -97,7 +98,7 @@ def main():
 			compare = np.concatenate([fused_ori, fused], axis = 1)
 			if not os.path.exists(save_path + 'compare/'):
 				os.mkdir(save_path + 'compare/')
-			scipy.misc.imsave(save_path + 'compare/' + name + '.png', compare)
+			imsave(save_path + 'compare/' + name + '.png', compare)
 
 			'''If load data with landmark, calculate landmark after deformation '''
 			identity_theta = np.array([1, 0, 0, 0, 1, 0], dtype=np.float32)

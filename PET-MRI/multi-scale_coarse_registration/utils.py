@@ -1,5 +1,6 @@
 from __future__ import print_function
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import os
 import numpy as np
 
@@ -47,17 +48,22 @@ def load(sess, saver, checkpoint_dir):
 
 
 def up_layer(scope_name, x, channels, kernel_size):
-	with tf.variable_scope(scope_name):
+	with tf.compat.v1.variable_scope(scope_name):
 	# 	x = tf.contrib.layers.conv2d_transpose(x, num_outputs=channels * 2, kernel_size=5, stride = 2, padding ='SAME')
 		l=int((kernel_size-1)/2)
 
 		_, height, width, c = x.shape
-		x = tf.image.resize_images(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
+		x = tf.image.resize(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
 
 
 		x = tf.pad(x, [[0, 0], [l, l], [l, l], [0, 0]], mode='REFLECT')
-		x = tf.contrib.layers.conv2d(inputs=x, num_outputs=channels, kernel_size=kernel_size, stride = 1, padding='VALID',
-									 activation_fn=None)
+		# 使用与原始checkpoint匹配的变量名 (Conv/weights, Conv/biases)
+		with tf.compat.v1.variable_scope('Conv'):
+			w = tf.compat.v1.get_variable('weights', [kernel_size, kernel_size, int(x.shape[-1]), channels], 
+				initializer=tf.random_normal_initializer(mean=0.0, stddev=0.1))
+			b = tf.compat.v1.get_variable('biases', [channels], initializer=tf.constant_initializer(0.0))
+			x = tf.nn.conv2d(x, w, strides=[1, 1, 1, 1], padding='VALID')
+			x = tf.nn.bias_add(x, b)
 		x = lrelu(x)
 	return x
 
@@ -90,14 +96,14 @@ def normalize_common_tf(a, b):
 
 
 def resblock(x_init, channels, use_bias=True, scope='resblock', reuse=False):
-	with tf.variable_scope(scope):
-		with tf.variable_scope('res1'):
+	with tf.compat.v1.variable_scope(scope):
+		with tf.compat.v1.variable_scope('res1'):
 			x = conv(x_init, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 			# x = instance_norm(x)
 			x = lrelu(x)
 
-		with tf.variable_scope('res2'):
+		with tf.compat.v1.variable_scope('res2'):
 			x = conv(x, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 			# x = instance_norm(x)
@@ -152,9 +158,9 @@ def bilinear_sampler(img, x, y):
 	# y = 0.5 * ((y + 1.0) * tf.cast(max_y-1, 'float32'))
 
 	# grab 4 nearest corner points for each (x_i, y_i)
-	x0 = tf.cast(tf.floor(x), 'int32')
+	x0 = tf.cast(tf.math.floor(x), 'int32')
 	x1 = x0 + 1
-	y0 = tf.cast(tf.floor(y), 'int32')
+	y0 = tf.cast(tf.math.floor(y), 'int32')
 	y1 = y0 + 1
 
 	labelx_min = tf.where(x < tf.cast(zero, 'float32'), x = tf.zeros_like(x), y = tf.ones_like(x))

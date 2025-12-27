@@ -45,16 +45,16 @@ def load(sess, saver, checkpoint_dir):
 
 
 def up_layer(scope_name, x, channels, kernel_size):
-	with tf.variable_scope(scope_name):
-	# 	x = tf.contrib.layers.conv2d_transpose(x, num_outputs=channels * 2, kernel_size=5, stride = 2, padding ='SAME')
+	with tf.compat.v1.variable_scope(scope_name):
+	# 	x = tf.compat.v1.layers.conv2d_transpose(x, num_outputs=channels * 2, kernel_size=5, stride = 2, padding ='SAME')
 		l=int((kernel_size-1)/2)
 
 		_, height, width, c = x.shape
-		x = tf.image.resize_images(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
+		x = tf.image.resize(images=x, size=[tf.constant(int(height) * 2), tf.constant(int(width) * 2)])
 
 
 		x = tf.pad(x, [[0, 0], [l, l], [l, l], [0, 0]], mode='REFLECT')
-		x = tf.contrib.layers.conv2d(inputs=x, num_outputs=channels, kernel_size=kernel_size, stride = 1, padding='VALID',
+		x = tf.compat.v1.layers.conv2d(inputs=x, num_outputs=channels, kernel_size=kernel_size, stride = 1, padding='VALID',
 									 activation_fn=None)
 		x = lrelu(x)
 	return x
@@ -246,14 +246,14 @@ def normalize_common_tf(a, b):
 
 
 def resblock(x_init, channels, use_bias=True, scope='resblock', reuse=False):
-	with tf.variable_scope(scope):
-		with tf.variable_scope('res1'):
+	with tf.compat.v1.variable_scope(scope):
+		with tf.compat.v1.variable_scope('res1'):
 			x = conv(x_init, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 			# x = instance_norm(x)
 			x = lrelu(x)
 
-		with tf.variable_scope('res2'):
+		with tf.compat.v1.variable_scope('res2'):
 			x = conv(x, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias,
 					 reuse=reuse)
 			# x = instance_norm(x)
@@ -519,7 +519,7 @@ def darkchannel(x):
 		x = tf.tile(x, [1, 1, 1, 3])
 	x = tf.reduce_min(x, axis = -1)
 	x = tf.expand_dims(x, axis = -1)
-	y = - tf.nn.max_pool(-x, ksize=[1, 5, 5, 1], strides=[1, 1, 1, 1], padding='SAME')
+	y = - tf.nn.max_pool2d(-x, ksize=[1, 5, 5, 1], strides=[1, 1, 1, 1], padding='SAME')
 	return y
 
 
@@ -536,20 +536,20 @@ def channelattention(x, y, scope='ca'):
 
 	avg_p = avg_p_x + avg_p_y
 	max_p = max_p_x + max_p_y
-	avg_p = tf.layers.dense(avg_p, units=channels // 8,
-							kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001),
+	avg_p = tf.compat.v1.layers.dense(avg_p, units=channels // 8,
+							kernel_initializer=tf.compat.v1.random_normal_initializer(mean=0.0, stddev=0.001),
 							kernel_regularizer=None,
 							use_bias=True)
-	avg_p = tf.layers.dense(avg_p, units=channels,
-							kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001),
+	avg_p = tf.compat.v1.layers.dense(avg_p, units=channels,
+							kernel_initializer=tf.compat.v1.random_normal_initializer(mean=0.0, stddev=0.001),
 							kernel_regularizer=None,
 							use_bias=True)
-	max_p = tf.layers.dense(max_p, units=channels // 8,
-							kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001),
+	max_p = tf.compat.v1.layers.dense(max_p, units=channels // 8,
+							kernel_initializer=tf.compat.v1.random_normal_initializer(mean=0.0, stddev=0.001),
 							kernel_regularizer=None,
 							use_bias=True)
-	max_p = tf.layers.dense(max_p, units=channels,
-							kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001),
+	max_p = tf.compat.v1.layers.dense(max_p, units=channels,
+							kernel_initializer=tf.compat.v1.random_normal_initializer(mean=0.0, stddev=0.001),
 							kernel_regularizer=None,
 							use_bias=True)
 

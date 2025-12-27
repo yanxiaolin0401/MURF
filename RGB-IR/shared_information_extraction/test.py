@@ -10,7 +10,8 @@ from scipy.io import loadmat
 from train import train_descriptor
 from des_extract_model import Des_Extract_Model
 from utils import *
-import scipy.misc
+from imageio import imread, imsave
+from PIL import Image
 import cv2
 
 N=512
@@ -39,12 +40,12 @@ def main():
 		for file in files:
 			name = file.split('/')[-1]
 			print(name)
-			rgb_img = scipy.misc.imread(test_path1 + name)
-			ir_img = scipy.misc.imread(test_path2 + name)
+			rgb_img = np.array(imread(test_path1 + name))
+			ir_img = np.array(imread(test_path2 + name))
 			rgb_dimension = list(rgb_img.shape)
 			ir_dimension = list(ir_img.shape)
-			rgb_img = scipy.misc.imresize(rgb_img, (N, N))
-			ir_img = scipy.misc.imresize(ir_img, size=(N, N))
+			rgb_img = np.array(Image.fromarray(rgb_img).resize((N, N)))
+			ir_img = np.array(Image.fromarray(ir_img).resize((N, N)))
 			rgb_img = np.expand_dims(rgb_img, axis=0)
 			ir_img = np.expand_dims(np.expand_dims(ir_img, axis=0), axis=-1)
 			rgb_img = rgb_img.astype(np.float32) / 255.0
@@ -60,8 +61,10 @@ def main():
 			if not os.path.exists(save_path + 'IR/'):
 				os.mkdir(save_path + 'IR/')
 
-			scipy.misc.imsave(save_path + 'RGB/' + name, scipy.misc.imresize(rgb_des[0, :, :, 0], (rgb_dimension[0], rgb_dimension[1])))
-			scipy.misc.imsave(save_path + 'IR/' + name, scipy.misc.imresize(ir_des[0, :, :, 0], (ir_dimension[0], ir_dimension[1])))
+			rgb_out = np.array(Image.fromarray((rgb_des[0, :, :, 0]*255).astype(np.uint8)).resize((rgb_dimension[1], rgb_dimension[0])))
+			ir_out = np.array(Image.fromarray((ir_des[0, :, :, 0]*255).astype(np.uint8)).resize((ir_dimension[1], ir_dimension[0])))
+			imsave(save_path + 'RGB/' + name, rgb_out)
+			imsave(save_path + 'IR/' + name, ir_out)
 
 
 if __name__ == '__main__':

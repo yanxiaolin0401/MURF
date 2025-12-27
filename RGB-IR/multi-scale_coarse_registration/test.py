@@ -9,9 +9,16 @@ import tensorflow as tf
 from scipy.io import loadmat
 from affine_model import Affine_Model
 from utils import *
-import scipy.misc
 import cv2
 import scipy.io as scio
+from PIL import Image
+from imageio import imsave
+
+def imresize(img, size):
+    """替换 imresize"""
+    pil_img = Image.fromarray(img.astype(np.uint8))
+    resized = pil_img.resize((size[1], size[0]), Image.BILINEAR)
+    return np.array(resized)
 
 N = 512
 def main():
@@ -49,8 +56,8 @@ def main():
 			print("\033[0;37;40m\t["+ str(pic_num) + "/" + str(len(files)) +"]: "+ names + "\033[0m")
 
 			'''load data through image'''
-			# rgb_img = scipy.misc.imread(test_path1 + names)
-			# ir_img = scipy.misc.imread(test_path2 + names)
+			# rgb_img = imread(test_path1 + names)
+			# ir_img = imread(test_path2 + names)
 
 			'''load data with landmark through .mat'''
 			data = scio.loadmat(test_path_LM + name + '.mat')
@@ -64,8 +71,8 @@ def main():
 			H = rgb_dimension[0] * 1.0
 			W = rgb_dimension[1] * 1.0
 			"resize"
-			rgb_img_N = scipy.misc.imresize(rgb_img, size=(N, N))
-			ir_img_N = scipy.misc.imresize(ir_img, size=(N, N))
+			rgb_img_N = imresize(rgb_img, size=(N, N))
+			ir_img_N = imresize(ir_img, size=(N, N))
 			rgb_img_N = np.expand_dims(rgb_img_N, axis=0)
 			ir_img_N = np.expand_dims(np.expand_dims(ir_img_N, axis=0), axis=-1)
 			rgb_img_N = rgb_img_N.astype(np.float32)/255.0
@@ -77,10 +84,10 @@ def main():
 
 			warped_rgb, dtheta = sess.run([affine_model.warped_RGB, affine_model.dtheta],
 										  feed_dict={SOURCE_RGB: rgb_img_N, SOURCE_IR: ir_img_N})
-			warped_rgb = scipy.misc.imresize(warped_rgb[0, :, :, :], (rgb_dimension[0], rgb_dimension[1])).astype(np.float32) / 255.0
+			warped_rgb = imresize(warped_rgb[0, :, :, :], (rgb_dimension[0], rgb_dimension[1])).astype(np.float32) / 255.0
 			if not os.path.exists(save_path + 'warped_RGB/'):
 				os.mkdir(save_path + 'warped_RGB/')
-			scipy.misc.imsave(save_path + 'warped_RGB/' + name + '.jpg', warped_rgb)
+			imsave(save_path + 'warped_RGB/' + name + '.jpg', warped_rgb)
 
 			rgb_img = rgb_img.astype(np.float32) / 255.0
 			ir_img = ir_img.astype(np.float32) / 255.0
@@ -89,7 +96,7 @@ def main():
 			compare = np.concatenate([fused_ori, fused], axis = 1)
 			if not os.path.exists(save_path + 'compare/'):
 				os.mkdir(save_path + 'compare/')
-			scipy.misc.imsave(save_path + 'compare/' + name + '.png', compare)
+			imsave(save_path + 'compare/' + name + '.png', compare)
 
 			'''If load data with landmark, calculate landmark after deformation '''
 			identity_theta = np.array([1, 0, 0, 0, 1, 0], dtype=np.float32)

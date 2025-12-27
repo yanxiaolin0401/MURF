@@ -8,10 +8,10 @@ from IPython import display
 import scipy.io as scio
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 from skimage import img_as_ubyte
-from utils import *
+from utils_tf2 import *
 import sys
 sys.path.append("..")
 
@@ -27,7 +27,7 @@ class F2M_Model(object):
 		self.INPUT_W = INPUT_W
 		self.var_list_g = []
 		self.step = 0
-		self.lr = tf.placeholder(tf.float32, name='lr')
+		self.lr = tf.compat.v1.placeholder(tf.float32, name='lr')
 		self.is_training = is_training
 		self.BN=BN
 
@@ -36,7 +36,7 @@ class F2M_Model(object):
 		self.RGB = RGB
 		print(self.is_training)
 		if self.is_training:
-			with tf.device('/gpu:0'):
+			with tf.device('/cpu:0'):
 				self.defor_field =defor_field
 				self.re_defor_field_gt = re_defor_field_gt
 				x = tf.linspace(-1.0, 1.0, self.INPUT_W)
@@ -58,7 +58,7 @@ class F2M_Model(object):
 		else:
 			self.dRGB = RGB
 
-		with tf.device('/gpu:0'):
+		with tf.device('/cpu:0'):
 			self.f2m_net = F2M_network('f2m_net', self.BN)
 			drgb_ycbcr = rgb2ycbcr(self.dRGB)
 			drgb_y = drgb_ycbcr[0: self.batchsize, :, :, 0:1]
@@ -133,44 +133,44 @@ class F2M_network(object):
 		self.BN = BN
 
 	def fuse(self, img_a, img_b, reuse=False):
-		with tf.variable_scope(self.scope, reuse=reuse):
+		with tf.compat.v1.variable_scope(self.scope, reuse=reuse):
 			a_offset, self.offset = convoffset2D(img_a, img_b, scope_name='conv1_offset', BN=self.BN)
 
 			weights = tf.compat.v1.get_variable("w_a1", [1, 1, 3, 8],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("b_a1", [8], initializer=tf.constant_initializer(0.0))
 
 			conv_a1 = tf.nn.conv2d(a_offset, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_a1 = lrelu(conv_a1)
 
 			weights = tf.compat.v1.get_variable("w_b1", [1, 1, 1, 8],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("b_b1", [8], initializer=tf.constant_initializer(0.0))
 			conv_b1 = tf.nn.conv2d(img_b, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_b1 = lrelu(conv_b1)
 
 			weights = tf.compat.v1.get_variable("w_a2", [3, 3, 8, 16],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-			bias = tf.get_variable("b_a2", [16], initializer=tf.constant_initializer(0.0))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+			bias = tf.compat.v1.get_variable("b_a2", [16], initializer=tf.constant_initializer(0.0))
 			conv_a2 = tf.nn.conv2d(conv_a1, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_a2 = lrelu(conv_a2)
 
 			weights = tf.compat.v1.get_variable("w_b2", [3, 3, 8, 16],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
-			bias = tf.get_variable("b_b2", [16], initializer=tf.constant_initializer(0.0))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+			bias = tf.compat.v1.get_variable("b_b2", [16], initializer=tf.constant_initializer(0.0))
 			conv_b2 = tf.nn.conv2d(conv_b1, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_b2 = lrelu(conv_b2)
 
 			# a_offset2, self.offset2 = convoffset2D(conv_a2, conv_b2, scope_name='conv2_offset')
 
 			weights = tf.compat.v1.get_variable("w_a3", [3, 3, 16, 32],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("b_a3", [32], initializer=tf.constant_initializer(0.0))
 			conv_a3 = tf.nn.conv2d(conv_a2, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_a3 = lrelu(conv_a3)
 
 			weights = tf.compat.v1.get_variable("w_b3", [3, 3, 16, 32],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("b_b3", [32], initializer=tf.constant_initializer(0.0))
 			conv_b3 = tf.nn.conv2d(conv_b2, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			conv_b3 = lrelu(conv_b3)
@@ -180,20 +180,20 @@ class F2M_network(object):
 			conv_a3, conv_b3 = channelattention(conv_a3, conv_b3, scope='ca')
 
 			weights = tf.compat.v1.get_variable("wf1", [3, 3, 32, 32],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("bf1", [32], initializer=tf.constant_initializer(0.0))
 			fused = tf.concat([conv_a3, conv_b3], axis=-1) # conv_a3 + conv_b3  # tf.where(conv_a3>conv_b3, conv_a3, conv_b3)
 			x = tf.nn.conv2d(fused, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			x = lrelu(x)
 
 			weights = tf.compat.v1.get_variable("wf2", [3, 3, 32, 16],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("bf2", [16], initializer=tf.constant_initializer(0.0))
 			x = tf.nn.conv2d(x, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			x = lrelu(x)
 
 			weights = tf.compat.v1.get_variable("wf3", [3, 3, 16, 1],
-												initializer=tf.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
+												initializer=tf.compat.v1.truncated_normal_initializer(stddev=WEIGHT_INIT_STDDEV))
 			bias = tf.compat.v1.get_variable("bf3", [1], initializer=tf.constant_initializer(0.0))
 			x = tf.nn.conv2d(x, weights, strides=[1, 1, 1, 1], padding='SAME') + bias
 			x = tf.nn.tanh(x) / 2 + 0.5
@@ -205,19 +205,19 @@ class F2M_network(object):
 def img_resize(x, scale):
 	oh = x.shape[1]
 	ow = x.shape[2]
-	x = tf.image.resize_images(images=x, size=[tf.constant(oh * scale), tf.constant(ow * scale)])
+	x = tf.image.resize(images=x, size=[tf.constant(oh * scale), tf.constant(ow * scale)])
 	return x
 
 def avg_pool(x):
 	return tf.nn.avg_pool(x, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 def res_block(x_init, channels, use_bias=True, sn=False, scope='resblock', reuse=False):
-	with tf.variable_scope(scope):
-		with tf.variable_scope('res_conv1'):
+	with tf.compat.v1.variable_scope(scope):
+		with tf.compat.v1.variable_scope('res_conv1'):
 			x = conv(x_init, channels, kernel=5, stride=1, pad=2, pad_type='reflect', use_bias=use_bias, reuse=reuse)
 			x = relu(x)
 
-		with tf.variable_scope('res_conv2'):
+		with tf.compat.v1.variable_scope('res_conv2'):
 			x = conv(x, channels, kernel=5, stride=1, pad=2, pad_type='reflect', use_bias=use_bias, reuse=reuse)
 
 		return x + x_init
@@ -225,8 +225,8 @@ def res_block(x_init, channels, use_bias=True, sn=False, scope='resblock', reuse
 
 def us(x, ratio=2):
 	_, height, width, _ = x.shape
-	x_d = tf.image.resize_images(images=x, size=[tf.constant(int(height * ratio)), tf.constant(int(width * ratio))],
-								 method=1)
+	x_d = tf.image.resize(images=x, size=[int(height * ratio), int(width * ratio)],
+								 method='bilinear')
 	return x_d
 
 
@@ -249,9 +249,9 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]])
 			if pad_type == 'reflect':
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], mode='REFLECT')
-		x = tf.layers.conv2d(inputs=x, filters=channels,
+		x = tf.compat.v1.layers.conv2d(inputs=x, filters=channels,
 							 kernel_size=kernel,
-							 kernel_initializer=tf.random_normal_initializer(mean=0.0, stddev=0.001),
+							 kernel_initializer=tf.compat.v1.random_normal_initializer(mean=0.0, stddev=0.001),
 							 kernel_regularizer=None,
 							 strides=stride, use_bias=use_bias, reuse=reuse)
 		return x
@@ -291,52 +291,52 @@ def convoffset2D(x, y, scope_name=None, BN=True):
 	identity = tf.concat([yy, xx], axis=-1)
 	identity = tf.tile(identity, [batchsize, 1, 1, 1])
 
-	with tf.variable_scope(scope_name):
-		with tf.variable_scope('offset_conv'):
+	with tf.compat.v1.variable_scope(scope_name):
+		with tf.compat.v1.variable_scope('offset_conv'):
 			offsets1 = conv(tf.concat([x, y], axis=-1), channels=32, kernel=3, stride=1, pad=1, pad_type='reflect',
 							scope='conv1', use_bias=True)
-			offsets1 = tf.contrib.layers.batch_norm(inputs=offsets1, activation_fn=None, is_training=BN)
+			offsets1 = tf.compat.v1.layers.batch_normalization(inputs=offsets1, training=BN)
 			offsets1 = lrelu(offsets1)
 			# offsets1 = res_block(offsets1, channels=32, scope='res1')
-			offsets1_ds = tf.nn.max_pool(offsets1, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
+			offsets1_ds = tf.nn.max_pool2d(offsets1, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 			offsets2 = conv(offsets1_ds, channels=32, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv2', use_bias=True)
-			#offsets2 = tf.contrib.layers.batch_norm(inputs=offsets2, activation_fn=None, is_training=is_training)
+			#offsets2 = tf.compat.v1.layers.batch_normalization(inputs=offsets2, is_training=is_training)
 			offsets2 = lrelu(offsets2)
 			# offsets2 = res_block(offsets2, channels=32, scope='res2')
-			offsets2_ds = tf.nn.max_pool(offsets2, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
+			offsets2_ds = tf.nn.max_pool2d(offsets2, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
 			offsets3 = conv(offsets2_ds, channels=32, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv3', use_bias=True)
-			offsets3 = tf.contrib.layers.batch_norm(inputs=offsets3, activation_fn=None, is_training=BN)
+			offsets3 = tf.compat.v1.layers.batch_normalization(inputs=offsets3, training=BN)
 			offsets3 = lrelu(offsets3)
 			# offsets3 = res_block(offsets3, channels=32, scope='res3')
-			offsets3_ds = tf.nn.max_pool(offsets3, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
+			offsets3_ds = tf.nn.max_pool2d(offsets3, ksize=[1, 4, 4, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
 			offsets5 = conv(offsets3_ds, channels=32, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv5',
 							use_bias=True)
-			offsets5 = tf.contrib.layers.batch_norm(inputs=offsets5, activation_fn=None, is_training=BN)
+			offsets5 = tf.compat.v1.layers.batch_normalization(inputs=offsets5, training=BN)
 			offsets5 = lrelu(offsets5)
 			# offsets5 = res_block(offsets5, channels=32, scope='res5')
 
 
 			offsets6 = conv(tf.concat([us(offsets5), offsets3], axis=-1), channels=32, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv6', use_bias=True)
-			offsets6 = tf.contrib.layers.batch_norm(inputs=offsets6, activation_fn=None, is_training=BN)
+			offsets6 = tf.compat.v1.layers.batch_normalization(inputs=offsets6, training=BN)
 			offsets6 = lrelu(offsets6)
 
 			offsets7 = conv(tf.concat([us(offsets6), offsets2], axis=-1), channels=32, kernel=3, stride=1, pad=1,
 							pad_type='reflect', scope='conv7', use_bias=True)
-			offsets7 = tf.contrib.layers.batch_norm(inputs=offsets7, activation_fn=None, is_training=BN)
+			offsets7 = tf.compat.v1.layers.batch_normalization(inputs=offsets7, training=BN)
 			offsets7 = lrelu(offsets7)
 
 			offsets8 = conv(tf.concat([us(offsets7), offsets1], axis=-1), channels=32, kernel=3, stride=1, pad=1,
 							pad_type='reflect', scope='conv8', use_bias=True)
-			offsets8 = tf.contrib.layers.batch_norm(inputs=offsets8, activation_fn=None, is_training=BN)
+			offsets8 = tf.compat.v1.layers.batch_normalization(inputs=offsets8, training=BN)
 			offsets8 = lrelu(offsets8)
 
 			offsets10 = conv(offsets8, channels=16, kernel=3, stride=1, pad=1, pad_type='reflect', scope='conv10', use_bias=True)
-			offsets10 = tf.contrib.layers.batch_norm(inputs=offsets10, activation_fn=None, is_training=BN)
+			offsets10 = tf.compat.v1.layers.batch_normalization(inputs=offsets10, training=BN)
 			offsets10 = lrelu(offsets10)
 
 			offsets = conv(offsets10, channels=2, kernel=3, stride=1, pad=1, pad_type='reflect',

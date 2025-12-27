@@ -6,12 +6,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from affine_model import Affine_Model
 from utils import *
-import scipy.misc
+from imageio import imread, imsave
+from PIL import Image
 import cv2
 import scipy.io as scio
+
+def imresize(img, size):
+    """imresize replacement using PIL"""
+    pil_img = Image.fromarray(img.astype(np.uint8))
+    if isinstance(size, tuple):
+        pil_img = pil_img.resize((size[1], size[0]), Image.BILINEAR)
+    else:
+        new_h = int(pil_img.height * size)
+        new_w = int(pil_img.width * size)
+        pil_img = pil_img.resize((new_w, new_h), Image.BILINEAR)
+    return np.array(pil_img)
 
 N = 256
 
@@ -27,14 +40,14 @@ def main():
 	files = listdir(test_path1)
 	pic_num = 0
 
-	with tf.Graph().as_default(), tf.Session() as sess:
+	with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
 		affine_model = Affine_Model(BATCH_SIZE=1, INPUT_W=N, INPUT_H=N, is_training=True)
-		SOURCE_PET = tf.placeholder(tf.float32, shape = (1, N, N, 3), name = 'SOURCE1')
-		SOURCE_MRI = tf.placeholder(tf.float32, shape = (1, N, N, 1), name = 'SOURCE2')
+		SOURCE_PET = tf.compat.v1.placeholder(tf.float32, shape = (1, N, N, 3), name = 'SOURCE1')
+		SOURCE_MRI = tf.compat.v1.placeholder(tf.float32, shape = (1, N, N, 1), name = 'SOURCE2')
 		affine_model.affine(SOURCE_PET, SOURCE_MRI)
 
-		var_list_des = tf.contrib.framework.get_trainable_variables(scope='des_extract')
-		var_list_affine = tf.contrib.framework.get_trainable_variables(scope='affine_net')
+		var_list_des = [v for v in tf.compat.v1.trainable_variables() if 'des_extract' in v.name]
+		var_list_affine = [v for v in tf.compat.v1.trainable_variables() if 'affine_net' in v.name]
 		var_list = var_list_affine + var_list_des
 
 		affine_model.solver = tf.compat.v1.train.AdamOptimizer(learning_rate=0.0001, beta1=0.5, beta2=0.99).minimize(
@@ -52,8 +65,8 @@ def main():
 			print("\033[0;37;40m\t["+ str(pic_num) + "/" + str(len(files)) +"]: "+ name + ".jpg" + "\033[0m")
 
 			'''load data through image'''
-			PET_img = scipy.misc.imread(test_path1 + name + ".png")
-			MRI_img = scipy.misc.imread(test_path2 + name + ".png")
+			PET_img = imread(test_path1 + name + ".png")
+			MRI_img = imread(test_path2 + name + ".png")
 
 			'''load data with landmark through .mat'''
 			# data = scio.loadmat(test_path_LM + name + '.mat')
@@ -67,8 +80,8 @@ def main():
 			H = PET_dimension[0] * 1.0
 			W = PET_dimension[1] * 1.0
 			"resize"
-			PET_img_N = scipy.misc.imresize(PET_img, size=(N, N))
-			MRI_img_N = scipy.misc.imresize(MRI_img, size=(N, N))
+			PET_img_N = imresize(PET_img, size=(N, N))
+			MRI_img_N = imresize(MRI_img, size=(N, N))
 			PET_img_N = np.expand_dims(PET_img_N, axis=0)
 			MRI_img_N = np.expand_dims(np.expand_dims(MRI_img_N, axis=0), axis=-1)
 			PET_img_N = PET_img_N.astype(np.float32)/255.0
@@ -80,11 +93,11 @@ def main():
 
 			warped_PET, dtheta = sess.run([affine_model.warped_PET, affine_model.dtheta],
 										feed_dict={SOURCE_PET: PET_img_N, SOURCE_MRI: MRI_img_N})
-			warped_PET = scipy.misc.imresize(warped_PET[0, :, :, :], (PET_dimension[0], PET_dimension[1])).astype(np.float32) / 255.0
+			warped_PET = imresize(warped_PET[0, :, :, :], (PET_dimension[0], PET_dimension[1])).astype(np.float32) / 255.0
 			
 			if not os.path.exists(save_path + 'warped_PET/'):
 				os.mkdir(save_path + 'warped_PET/')
-			scipy.misc.imsave(save_path + 'warped_PET/' + name + '.png', warped_PET)
+			imsave(save_path + 'warped_PET/' + name + '.png', (warped_PET * 255).astype(np.uint8))
 
 			PET_img = PET_img.astype(np.float32) / 255.0
 			MRI_img = MRI_img.astype(np.float32) / 255.0
@@ -93,7 +106,7 @@ def main():
 			compare = np.concatenate([fused_ori, fused], axis = 1)
 			if not os.path.exists(save_path + 'compare/'):
 				os.mkdir(save_path + 'compare/')
-			scipy.misc.imsave(save_path + 'compare/' + name + '.png', compare)
+			imsave(save_path + 'compare/' + name + '.png', (compare * 255).astype(np.uint8))
 
 			identity_theta = np.array([1, 0, 0, 0, 1, 0], dtype=np.float32)
 			affine_matrix = np.reshape(identity_theta + dtheta[0, :], [2, 3])

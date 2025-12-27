@@ -3,10 +3,11 @@ from __future__ import print_function
 import scipy.io as scio
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 import scipy.io as scio
 from skimage import img_as_ubyte
@@ -29,7 +30,7 @@ def train_f2m(model, sess, trainset, merged1=None, writer=None, saver=None, save
 	if mod > 0:
 		trainset = trainset[:-mod]
 
-	var_list_f2m = tf.contrib.framework.get_trainable_variables(scope='f2m_net')
+	var_list_f2m = [v for v in tf.compat.v1.trainable_variables() if 'f2m_net' in v.name]
 	var_list_f2m_offset = list()
 	var_list_f2m_fuse = list()
 	for i in var_list_f2m:

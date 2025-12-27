@@ -89,8 +89,8 @@ def main():
 				name = name.split('.')[-2]
 				print("\033[0;37;40m"+ name + ".png" + "\033[0m")
 
-				rgb_img = scipy.misc.imread(test_path1 + file.split('/')[-1])
-				nir_img = scipy.misc.imread(test_path2 + file.split('/')[-1])
+				rgb_img = imread(test_path1 + file.split('/')[-1])
+				nir_img = imread(test_path2 + file.split('/')[-1])
 				rgb_dimension = list(rgb_img.shape)
 				nir_dimension = list(nir_img.shape)
 				H = rgb_dimension[0] * 1.0

@@ -1,12 +1,13 @@
 from __future__ import print_function
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import numpy as np
 from copy import deepcopy
 import matplotlib.pyplot as plt
 import scipy.io as scio
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 import math
 from skimage import img_as_ubyte
@@ -138,12 +139,12 @@ def con(x,y):
 
 def resblock(x_init, channels, use_bias=True, sn=False, scope='resblock', reuse=False):
 	with tf.compat.v1.variable_scope(scope):
-		with tf.variable_scope('res1'):
+		with tf.compat.v1.variable_scope('res1'):
 			x = conv(x_init, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias, sn=sn,
 					 reuse=reuse)
 			x = lrelu(x)
 
-		with tf.variable_scope('res2'):
+		with tf.compat.v1.variable_scope('res2'):
 			x = conv(x, channels, kernel=3, stride=1, pad=1, pad_type='reflect', use_bias=use_bias, sn=sn, reuse=reuse)
 		return x + x_init
 
@@ -167,15 +168,15 @@ def conv(x, channels, kernel=4, stride=2, pad=0, pad_type='zero', use_bias=True,
 			if pad_type == 'reflect':
 				x = tf.pad(x, [[0, 0], [pad_top, pad_bottom], [pad_left, pad_right], [0, 0]], mode='REFLECT')
 		if sn:
-			w = tf.get_variable("kernel", shape=[kernel, kernel, x.get_shape()[-1], channels], initializer=weight_init,
+			w = tf.compat.v1.get_variable("kernel", shape=[kernel, kernel, x.get_shape()[-1], channels], initializer=weight_init,
 								regularizer=weight_regularizer)
 			x = tf.nn.conv2d(input=x, filter=spectral_norm(w), strides=[1, stride, stride, 1], padding='VALID',
 							 reuse=reuse)
 			if use_bias:
-				bias = tf.get_variable("bias", [channels], initializer=tf.constant_initializer(0.0))
+				bias = tf.compat.v1.get_variable("bias", [channels], initializer=tf.constant_initializer(0.0))
 				x = tf.nn.bias_add(x, bias)
 		else:
-			x = tf.layers.conv2d(inputs=x, filters=channels,
+			x = tf.compat.v1.layers.conv2d(inputs=x, filters=channels,
 								 kernel_size=kernel, kernel_initializer=weight_init,
 								 kernel_regularizer=weight_regularizer,
 								 strides=stride, use_bias=use_bias, reuse=reuse)
@@ -191,9 +192,9 @@ def instance_norm(x, scope='instance_norm'):
 	depth = shape[3]
 	with tf.compat.v1.variable_scope(scope):
 		scale = tf.compat.v1.get_variable("scale", shape=[depth],
-								initializer=tf.random_normal_initializer(mean=1.0, stddev=0.02, dtype=tf.float32))
+								initializer=tf.random_normal_initializer(mean=1.0, stddev=0.02))
 		offset = tf.compat.v1.get_variable("offset", shape=[depth], initializer=tf.constant_initializer(0.0))
-		mean, variance = tf.nn.moments(x, axes=[1, 2], keep_dims=True)
+		mean, variance = tf.nn.moments(x, axes=[1, 2], keepdims=True)
 		epsilon = 1e-5
 		inv = tf.math.rsqrt(variance + epsilon)
 		normalized = (x - mean) * inv

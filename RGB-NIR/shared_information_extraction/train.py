@@ -3,10 +3,11 @@ from __future__ import print_function
 import scipy.io as scio
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 import scipy.io as scio
 from skimage import img_as_ubyte
@@ -31,8 +32,8 @@ def train_descriptor(model, sess, trainset, merged1=None, writer=None, saver=Non
 	if mod > 0:
 		trainset = trainset[:-mod]
 
-	var_list_rgb = tf.contrib.framework.get_trainable_variables(scope='des_extract/RGB_Encoder')
-	var_list_nir = tf.contrib.framework.get_trainable_variables(scope='des_extract/NIR_Encoder')
+	var_list_rgb = [v for v in tf.compat.v1.trainable_variables() if 'des_extract/RGB_Encoder' in v.name]
+	var_list_nir = [v for v in tf.compat.v1.trainable_variables() if 'des_extract/NIR_Encoder' in v.name]
 	var_list_descriptor = var_list_rgb + var_list_nir
 	# print('RGB_Encoder var_list:')
 	# for v in var_list_rgb:

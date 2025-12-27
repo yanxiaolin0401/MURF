@@ -6,13 +6,26 @@ import numpy as np
 import matplotlib.pyplot as plt
 import scipy.ndimage
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 from scipy.io import loadmat
 from affine_model import Affine_Model, apply_affine_trans
 from utils import *
-import scipy.misc
+from imageio import imread, imsave
+from PIL import Image
 import cv2
 import scipy.io as scio
 from datetime import datetime
+
+def imresize(img, size):
+    """imresize replacement using PIL"""
+    pil_img = Image.fromarray(img.astype(np.uint8))
+    if isinstance(size, tuple):
+        pil_img = pil_img.resize((size[1], size[0]), Image.BILINEAR)
+    else:
+        new_h = int(pil_img.height * size)
+        new_w = int(pil_img.width * size)
+        pil_img = pil_img.resize((new_w, new_h), Image.BILINEAR)
+    return np.array(pil_img)
 
 H = 1024
 W = 1024
@@ -28,15 +41,15 @@ def main():
 	pic_num = 0
 	Ti=[]
 
-	with tf.Graph().as_default(), tf.Session() as sess:
+	with tf.Graph().as_default(), tf.compat.v1.Session() as sess:
 		affine_model = Affine_Model(BATCH_SIZE=1, INPUT_H=H, INPUT_W=W, is_training=False)
-		SOURCE_RGB_N = tf.placeholder(tf.float32, shape = (1, H, W, 3), name = 'SOURCE1_N')
-		SOURCE_NIR_N = tf.placeholder(tf.float32, shape = (1, H, W, 1), name = 'SOURCE2_N')
+		SOURCE_RGB_N = tf.compat.v1.placeholder(tf.float32, shape = (1, H, W, 3), name = 'SOURCE1_N')
+		SOURCE_NIR_N = tf.compat.v1.placeholder(tf.float32, shape = (1, H, W, 1), name = 'SOURCE2_N')
 		affine_model.affine(SOURCE_RGB_N, SOURCE_NIR_N, dropout=False)
 		WSOURCE1, label, _ = apply_affine_trans(SOURCE_RGB_N, affine_model.dtheta)
 		WSOURCE1 = tf.multiply(WSOURCE1, tf.tile(label, [1, 1, 1, 3]))
 
-		var_list_affine = tf.contrib.framework.get_trainable_variables(scope='affine_net')
+		var_list_affine = [v for v in tf.compat.v1.trainable_variables() if 'affine_net' in v.name]
 		var_list = var_list_affine
 
 		saver = tf.compat.v1.train.Saver(var_list=var_list)
@@ -51,8 +64,8 @@ def main():
 			print("\033[0;33;40m[" + str(pic_num) + "/" + str(len(files)) + "]: " + names + "\033[0m")
 
 			'''load data through image'''
-			rgb_img = scipy.misc.imread(test_path1 + names)
-			nir_img = scipy.misc.imread(test_path2 + names)
+			rgb_img = imread(test_path1 + names)
+			nir_img = imread(test_path2 + names)
 
 			'''load data with landmark through .mat'''
 			# data = scio.loadmat(test_path_LM + name + '.mat')
@@ -68,18 +81,18 @@ def main():
 			width = rgb_dimension[1]
 
 			"resize"
-			rgb_img_N = scipy.misc.imresize(rgb_img, size=(H, W))
+			rgb_img_N = imresize(rgb_img, size=(H, W))
 			rgb_img_N = np.expand_dims(rgb_img_N, axis=0)
 			rgb_img_N = rgb_img_N.astype(np.float32) / 255.0
-			nir_img_N = scipy.misc.imresize(nir_img, size=(H, W))
+			nir_img_N = imresize(nir_img, (H, W))
 			nir_img_N = np.expand_dims(np.expand_dims(nir_img_N, axis=0), axis=-1)
 			nir_img_N = nir_img_N.astype(np.float32) / 255.0
 
 			warped_rgb, dtheta = sess.run([WSOURCE1, affine_model.dtheta], feed_dict={SOURCE_RGB_N: rgb_img_N, SOURCE_NIR_N: nir_img_N})
-			warped_rgb = scipy.misc.imresize(warped_rgb[0, :, :, :], (height, width)).astype(np.float32) / 255.0
+			warped_rgb = imresize(warped_rgb[0, :, :, :], (height, width)).astype(np.float32) / 255.0
 			if not os.path.exists(save_path + 'warped_RGB/'):
 				os.mkdir(save_path + 'warped_RGB/')
-			scipy.misc.imsave(save_path + 'warped_RGB/' + name + '.png', warped_rgb)
+			imsave(save_path + 'warped_RGB/' + name + '.png', (warped_rgb * 255).astype(np.uint8))
 
 			time = datetime.now() - start_time
 			time = time.total_seconds()
@@ -96,7 +109,7 @@ def main():
 			compare = np.concatenate([fused_ori, fused], axis = 1)
 			if not os.path.exists(save_path + 'compare/'):
 				os.mkdir(save_path + 'compare/')
-			scipy.misc.imsave(save_path + 'compare/' + name + '.png', compare)
+			imsave(save_path + 'compare/' + name + '.png', (compare * 255).astype(np.uint8))
 
 			'''If load data with landmark'''
 			'''calculate landmark after deformation '''

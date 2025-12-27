@@ -8,7 +8,7 @@ from IPython import display
 import scipy.io as scio
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 from skimage import img_as_ubyte
 from utils import *
@@ -35,7 +35,7 @@ class Affine_Model(object):
 		self.RGB = RGB
 		self.IR = IR
 
-		with tf.device('/gpu:0'):
+		with tf.device('/cpu:0'):
 			self.RGB_d4 = img_resize(self.RGB, 0.25)
 			self.IR_d4 = img_resize(self.IR, 0.25)
 			self.RGB_d2 = img_resize(self.RGB, 0.5)
@@ -60,7 +60,7 @@ class Affine_Model(object):
 			self.warped_RGB = tf.multiply(self.warped_RGB, tf.tile(self.label, [1, 1, 1, 3]))
 
 		if self.is_training:
-			with tf.device('/gpu:1'):
+			with tf.device('/cpu:0'):
 				self.extract_model = Des_Extract_Model(self.batchsize, self.INPUT_H, self.INPUT_W, is_training=False, equivariance=False)
 				self.extract_model.des(self.RGB, self.IR)
 				self.RGB_des = self.extract_model.RGB_des

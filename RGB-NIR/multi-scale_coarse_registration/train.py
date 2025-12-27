@@ -3,10 +3,11 @@ from __future__ import print_function
 import scipy.io as scio
 import numpy as np
 import tensorflow as tf
+tf.compat.v1.disable_eager_execution()
 import matplotlib.pyplot as plt
 import time
 from datetime import datetime
-from scipy.misc import imsave
+from imageio import imsave
 import scipy.ndimage
 import scipy.io as scio
 from skimage import img_as_ubyte
@@ -30,8 +31,8 @@ def train_affine_network(model, sess, trainset, merged1=None, writer=None, saver
 	if mod > 0:
 		trainset = trainset[:-mod]
 
-	var_list_des = tf.contrib.framework.get_trainable_variables(scope='des_extract')
-	var_list_affine = tf.contrib.framework.get_trainable_variables(scope='affine_net')
+	var_list_des = [v for v in tf.compat.v1.trainable_variables() if 'des_extract' in v.name]
+	var_list_affine = [v for v in tf.compat.v1.trainable_variables() if 'affine_net' in v.name]
 
 	model.clip = [p.assign(tf.clip_by_value(p, -50, 50)) for p in var_list_affine]
 	model.solver = tf.compat.v1.train.AdamOptimizer(learning_rate=model.lr, beta1=0.5, beta2=0.99).minimize(model.loss,
